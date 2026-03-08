@@ -18,16 +18,20 @@ const {
 } = await supabase.auth.getUser();
 
 if (!user) {
+    console.log("[ADMIN.ASTRO] No user found in session, redirecting to /login");
     return Astro.redirect("/login");
 }
 
-const { data: profile } = await supabase
+const { data: profile, error } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
 
+console.log(`[ADMIN.ASTRO] User ID: ${user.id}, Profile:`, profile, `Error:`, error);
+
 if (!profile || profile.role !== "administrador") {
+    console.log("[ADMIN.ASTRO] Profile is not admin, redirecting to /dashboard");
     return Astro.redirect("/dashboard");
 }
 

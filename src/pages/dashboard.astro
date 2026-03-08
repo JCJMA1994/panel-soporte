@@ -26,17 +26,21 @@ const {
 // 3. Esta es la comprobación de seguridad.
 // Si user es null, significa que no hay un usuario válido. Lo redirigimos a login.
 if (!user) {
+    console.log("[DASHBOARD.ASTRO] No user found in session, redirecting to /login");
     return Astro.redirect("/login");
 }
 
 // 4. Verificamos el rol para redirigir administradores a su panel
-const { data: profile } = await supabase
+const { data: profile, error } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
 
+console.log(`[DASHBOARD.ASTRO] User ID: ${user.id}, Profile:`, profile, `Error:`, error);
+
 if (profile?.role === "administrador") {
+    console.log("[DASHBOARD.ASTRO] Profile is admin, redirecting to /admin");
     return Astro.redirect("/admin");
 }
 

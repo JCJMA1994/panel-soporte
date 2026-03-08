@@ -14,6 +14,17 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Habilitar RLS en profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+-- 1.5. FUNCION PARA EVITAR BUCLE INFINITO EN RLS
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'administrador'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Políticas de RLS para profiles
 CREATE POLICY "Los usuarios pueden ver su propio perfil" 
   ON public.profiles FOR SELECT 
@@ -21,12 +32,7 @@ CREATE POLICY "Los usuarios pueden ver su propio perfil"
 
 CREATE POLICY "Los administradores pueden ver todos los perfiles" 
   ON public.profiles FOR SELECT 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = auth.uid() AND role = 'administrador'
-    )
-  );
+  USING (public.is_admin());
 
 -- 2. TABLA DE TICKETS
 -- Para el sistema de soporte técnico.
@@ -54,21 +60,11 @@ CREATE POLICY "Clientes pueden crear sus propios tickets"
 
 CREATE POLICY "Administradores pueden ver todos los tickets" 
   ON public.tickets FOR SELECT 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = auth.uid() AND role = 'administrador'
-    )
-  );
+  USING (public.is_admin());
 
 CREATE POLICY "Administradores pueden actualizar cualquier ticket" 
   ON public.tickets FOR UPDATE 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = auth.uid() AND role = 'administrador'
-    )
-  );
+  USING (public.is_admin());
 
 -- 3. TABLA DE CITAS (APPOINTMENTS)
 -- Para programar visitas o llamadas.
@@ -95,21 +91,11 @@ CREATE POLICY "Clientes pueden solicitar sus propias citas"
 
 CREATE POLICY "Administradores pueden ver todas las citas" 
   ON public.appointments FOR SELECT 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = auth.uid() AND role = 'administrador'
-    )
-  );
+  USING (public.is_admin());
 
 CREATE POLICY "Administradores pueden actualizar cualquier cita" 
   ON public.appointments FOR UPDATE 
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = auth.uid() AND role = 'administrador'
-    )
-  );
+  USING (public.is_admin());
 
 -- 4. TRIGGER PARA CREAR PERFIL AUTOMÁTICAMENTE
 -- Crea una fila en public.profiles cada vez que un usuario se registra en Auth.

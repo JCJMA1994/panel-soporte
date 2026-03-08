@@ -26,15 +26,15 @@ export default function AuthForm() {
         try {
             if (isLoginView) {
                 // Lógica de Inicio de Sesión
-                const { error } = await supabase.auth.signInWithPassword({
+                const { data, error } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
                 if (error) throw error;
 
                 // --- MEJORA DE REDIRECCIÓN ---
-                // Obtenemos los datos del usuario para ver su rol
-                const { data: { user } } = await supabase.auth.getUser();
+                // Usamos el usuario que ya nos devolvió el login
+                const user = data.user;
                 if (user) {
                     const { data: profile } = await supabase
                         .from('profiles')

@@ -1,6 +1,6 @@
 import { e as createComponent, f as createAstro, k as renderComponent, r as renderTemplate, m as maybeRenderHead } from '../chunks/astro/server_D3y13FJN.mjs';
 import 'piccolore';
-import { $ as $$Layout } from '../chunks/Layout_DVa8HdpV.mjs';
+import { $ as $$Layout } from '../chunks/Layout_C2wX5bfF.mjs';
 import { c as createSupabaseServerClient } from '../chunks/server_5i4tAfjZ.mjs';
 import { jsxs, jsx } from 'react/jsx-runtime';
 import { Ticket, LayoutDashboard, Users, BookOpen, UserSquare2, Settings, LogOut, Search, Bell, Plus, Filter } from 'lucide-react';
@@ -298,35 +298,55 @@ const $$Astro = createAstro();
 const $$Admin = createComponent(async ($$result, $$props, $$slots) => {
   const Astro2 = $$result.createAstro($$Astro, $$props, $$slots);
   Astro2.self = $$Admin;
-  const supabase = createSupabaseServerClient(Astro2.cookies);
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user) {
-    console.log("[ADMIN.ASTRO] No user found in session, redirecting to /login");
+  let errorMessage = "";
+  let allTickets = [];
+  let allAppointments = [];
+  let profile = null;
+  let user = null;
+  try {
+    const supabase = createSupabaseServerClient(Astro2.cookies);
+    const { data: userData } = await supabase.auth.getUser();
+    user = userData?.user;
+    if (!user) {
+      console.log("[ADMIN.ASTRO] No user found in session, redirecting to /login");
+    } else {
+      const { data: profileData, error: profileError } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      profile = profileData;
+      console.log(`[ADMIN.ASTRO] User ID: ${user.id}, Profile:`, profile, `Error:`, profileError);
+      if (!profile || profile.role !== "administrador") {
+        console.log("[ADMIN.ASTRO] Profile is not admin, redirecting to /dashboard");
+      } else {
+        const { data: ticketsData } = await supabase.from("tickets").select(
+          `
+                id, created_at, title, status, priority,
+                profiles ( full_name, email )
+            `
+        ).order("created_at", { ascending: false });
+        allTickets = ticketsData || [];
+        const { data: apptData } = await supabase.from("appointments").select(
+          `
+                id, appointment_date, notes, status,
+                profiles ( full_name, email )
+            `
+        ).order("appointment_date", { ascending: true });
+        let apptsToRender2 = allAppointments;
+      }
+    }
+  } catch (error) {
+    console.error("FATAL ERROR IN ADMIN.ASTRO:", error);
+    errorMessage = error?.message || String(error);
+  }
+  if (!user && !errorMessage) {
     return Astro2.redirect("/login");
   }
-  const { data: profile, error } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  console.log(`[ADMIN.ASTRO] User ID: ${user.id}, Profile:`, profile, `Error:`, error);
-  if (!profile || profile.role !== "administrador") {
-    console.log("[ADMIN.ASTRO] Profile is not admin, redirecting to /dashboard");
+  if (user && profile?.role !== "administrador" && !errorMessage) {
     return Astro2.redirect("/dashboard");
   }
-  const { data: allTickets } = await supabase.from("tickets").select(
-    `
-        id, created_at, title, status, priority,
-        profiles ( full_name, email )
-    `
-  ).order("created_at", { ascending: false });
-  const { data: allAppointments } = await supabase.from("appointments").select(
-    `
-        id, appointment_date, notes, status,
-        profiles ( full_name, email )
-    `
-  ).order("appointment_date", { ascending: true });
-  return renderTemplate`${renderComponent($$result, "Layout", $$Layout, { "title": "Admin Console | SupportOS" }, { "default": async ($$result2) => renderTemplate` ${maybeRenderHead()}<div class="flex min-h-screen bg-[#F8FAFC]"> <!-- Sidebar --> ${renderComponent($$result2, "AdminSidebar", AdminSidebar, { "user": user, "client:load": true, "client:component-hydration": "load", "client:component-path": "@/components/AdminSidebar", "client:component-export": "default" })} <!-- Main Content Area --> <div class="flex-1 flex flex-col min-w-0 overflow-hidden"> <!-- Header --> ${renderComponent($$result2, "AdminHeader", AdminHeader, { "totalTickets": allTickets?.length || 0, "client:load": true, "client:component-hydration": "load", "client:component-path": "@/components/AdminHeader", "client:component-export": "default" })} <!-- Content --> <main class="flex-1 overflow-y-auto p-8"> <div class="max-w-[1600px] mx-auto space-y-8">  ${renderComponent($$result2, "AdminTicketManager", AdminTicketManager, { "initialTickets": allTickets || [], "client:load": true, "client:component-hydration": "load", "client:component-path": "@/components/AdminTicketManager", "client:component-export": "default" })}  <section class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md"> <div class="flex items-center justify-between mb-6"> <h2 class="text-xl font-bold text-slate-800">
+  let ticketsToRender = allTickets || [];
+  let apptsToRender = allAppointments || [];
+  return renderTemplate`${errorMessage ? renderTemplate`${renderComponent($$result, "Layout", $$Layout, { "title": "Error en Servidor" }, { "default": async ($$result2) => renderTemplate`${maybeRenderHead()}<div class="flex items-center justify-center min-h-screen bg-slate-50"><div class="bg-white p-8 rounded-xl border border-red-200 shadow-md max-w-2xl w-full text-center"><div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl font-bold">!</div><h1 class="text-2xl font-bold text-slate-800 mb-2">Error Crítico del Servidor</h1><p class="text-slate-500 mb-6">Ha ocurrido un error inesperado al procesar la solicitud en Vercel.</p><div class="bg-red-50 text-red-800 p-4 rounded-lg text-left overflow-auto font-mono text-sm">${errorMessage}</div></div></div>` })}` : renderTemplate`${renderComponent($$result, "Layout", $$Layout, { "title": "Admin Console | SupportOS" }, { "default": async ($$result2) => renderTemplate`<div class="flex min-h-screen bg-[#F8FAFC]"><!-- Sidebar -->${renderComponent($$result2, "AdminSidebar", AdminSidebar, { "user": user, "client:load": true, "client:component-hydration": "load", "client:component-path": "@/components/AdminSidebar", "client:component-export": "default" })}<!-- Main Content Area --><div class="flex-1 flex flex-col min-w-0 overflow-hidden"><!-- Header -->${renderComponent($$result2, "AdminHeader", AdminHeader, { "totalTickets": allTickets?.length || 0, "client:load": true, "client:component-hydration": "load", "client:component-path": "@/components/AdminHeader", "client:component-export": "default" })}<!-- Content --><main class="flex-1 overflow-y-auto p-8"><div class="max-w-[1600px] mx-auto space-y-8">${renderComponent($$result2, "AdminTicketManager", AdminTicketManager, { "initialTickets": ticketsToRender, "client:load": true, "client:component-hydration": "load", "client:component-path": "@/components/AdminTicketManager", "client:component-export": "default" })}<section class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md"><div class="flex items-center justify-between mb-6"><h2 class="text-xl font-bold text-slate-800">
 Próximas Citas
-</h2> </div> ${renderComponent($$result2, "AdminAppointmentList", AdminAppointmentList, { "initialAppointments": allAppointments || [], "client:load": true, "client:component-hydration": "load", "client:component-path": "@/components/AdminAppointmentList", "client:component-export": "default" })} </section> </div> </main> </div> </div> ` })} `;
+</h2></div>${renderComponent($$result2, "AdminAppointmentList", AdminAppointmentList, { "initialAppointments": apptsToRender, "client:load": true, "client:component-hydration": "load", "client:component-path": "@/components/AdminAppointmentList", "client:component-export": "default" })}</section></div></main></div></div>` })}`}`;
 }, "D:/Proyectos/Android/panel-soporte/src/pages/admin.astro", void 0);
 
 const $$file = "D:/Proyectos/Android/panel-soporte/src/pages/admin.astro";

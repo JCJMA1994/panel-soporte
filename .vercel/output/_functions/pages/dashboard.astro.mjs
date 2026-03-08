@@ -1,6 +1,6 @@
 import { e as createComponent, f as createAstro, k as renderComponent, r as renderTemplate, m as maybeRenderHead } from '../chunks/astro/server_D3y13FJN.mjs';
 import 'piccolore';
-import { $ as $$Layout } from '../chunks/Layout_DVa8HdpV.mjs';
+import { $ as $$Layout } from '../chunks/Layout_C2wX5bfF.mjs';
 import { c as createSupabaseServerClient } from '../chunks/server_5i4tAfjZ.mjs';
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { B as Button, s as supabase, c as cn, C as Card, a as CardHeader, b as CardTitle, d as CardContent, I as Input, e as buttonVariants } from '../chunks/card_BFbSA1Em.mjs';

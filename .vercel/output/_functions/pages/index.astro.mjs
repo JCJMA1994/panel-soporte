@@ -2,7 +2,7 @@ import { e as createComponent, s as spreadAttributes, u as unescapeHTML, r as re
 import 'piccolore';
 import 'clsx';
 import '../chunks/index.95d291e9_l0sNRNKZ.mjs';
-import '../chunks/Layout_DVa8HdpV.mjs';
+import '../chunks/Layout_C2wX5bfF.mjs';
 import { c as createSupabaseServerClient } from '../chunks/server_5i4tAfjZ.mjs';
 export { renderers } from '../renderers.mjs';
 

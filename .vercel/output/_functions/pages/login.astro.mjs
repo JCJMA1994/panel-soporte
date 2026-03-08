@@ -1,6 +1,6 @@
 import { e as createComponent, k as renderComponent, r as renderTemplate, m as maybeRenderHead } from '../chunks/astro/server_D3y13FJN.mjs';
 import 'piccolore';
-import { $ as $$Layout } from '../chunks/Layout_DVa8HdpV.mjs';
+import { $ as $$Layout } from '../chunks/Layout_C2wX5bfF.mjs';
 import { jsx, jsxs } from 'react/jsx-runtime';
 import { useState } from 'react';
 import { C as Card, a as CardHeader, b as CardTitle, f as CardDescription, d as CardContent, I as Input, g as CardFooter, B as Button, s as supabase } from '../chunks/card_BFbSA1Em.mjs';

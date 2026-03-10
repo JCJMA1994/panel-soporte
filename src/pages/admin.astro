@@ -7,13 +7,10 @@ import AdminHeader from "@/components/AdminHeader";
 import AdminTicketManager, {
     type AdminTicket,
 } from "@/components/AdminTicketManager";
-import AdminAppointmentList, {
-    type Appointment,
-} from "@/components/AdminAppointmentList";
 
 let errorMessage = "";
 let allTickets: any = [];
-let allAppointments: any = [];
+let techniciansList: any = [];
 let profile: any = null;
 let user: any = null;
 
@@ -25,12 +22,10 @@ user = userData?.user;
 
 if (!user) {
     console.log("[ADMIN.ASTRO] No user found in session, redirecting to /login");
-    // Throw a specific error caught below, or redirect immediately.
-    // However, Astro.redirect inside try-catch is fine but we can't `return Astro.redirect` if we are extracting it.
 } else {
     const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, full_name")
         .eq("id", user.id)
         .single();
     
@@ -41,30 +36,28 @@ if (!user) {
     if (!profile || profile.role !== "administrador") {
         console.log("[ADMIN.ASTRO] Profile is not admin, redirecting to /dashboard");
     } else {
-        // Obtener datos
+        // Obtener datos de tickets
         const { data: ticketsData } = await supabase
             .from("tickets")
             .select(
                 `
-                id, created_at, title, status, priority,
-                profiles ( full_name, email )
+                id, created_at, title, status, priority, technician_id, solution,
+                profiles:client_id ( full_name, email ),
+                technician:technician_id ( full_name, email )
             `,
             )
             .order("created_at", { ascending: false });
 
         allTickets = ticketsData || [];
 
-        const { data: apptData } = await supabase
-            .from("appointments")
-            .select(
-                `
-                id, appointment_date, notes, status,
-                profiles ( full_name, email )
-            `,
-            )
-            .order("appointment_date", { ascending: true });
+        // Obtener lista de técnicos disponibles (solo administradores)
+        const { data: techniciansData } = await supabase
+            .from("profiles")
+            .select("id, full_name, email")
+            .eq("role", "administrador")
+            .order("full_name", { ascending: true });
         
-        let apptsToRender = allAppointments as Appointment[];
+        techniciansList = techniciansData || [];
     }
 }
 } catch (error: any) {
@@ -80,7 +73,7 @@ if (user && profile?.role !== "administrador" && !errorMessage) {
 }
 
 let ticketsToRender = (allTickets as AdminTicket[]) || [];
-let apptsToRender = (allAppointments as Appointment[]) || [];
+const technicians = techniciansList || [];
 
 ---
 
@@ -101,7 +94,7 @@ let apptsToRender = (allAppointments as Appointment[]) || [];
 <Layout title="Admin Console | SupportOS">
     <div class="flex min-h-screen bg-[#F8FAFC]">
         <!-- Sidebar -->
-        <AdminSidebar user={user} client:load />
+        <AdminSidebar user={user} profile={profile} client:load />
 
         <!-- Main Content Area -->
         <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -111,30 +104,11 @@ let apptsToRender = (allAppointments as Appointment[]) || [];
             <!-- Content -->
             <main class="flex-1 overflow-y-auto p-8">
                 <div class="max-w-[1600px] mx-auto space-y-8">
-                    {
-                        /* El Ticket Manager ya tiene el diseño de tabla premium */
-                    }
                     <AdminTicketManager
                         initialTickets={ticketsToRender}
+                        technicians={technicians}
                         client:load
                     />
-
-                    {
-                        /* Las citas también se muestran debajo (puedes estilizarlas más luego si deseas) */
-                    }
-                    <section
-                        class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md"
-                    >
-                        <div class="flex items-center justify-between mb-6">
-                            <h2 class="text-xl font-bold text-slate-800">
-                                Próximas Citas
-                            </h2>
-                        </div>
-                        <AdminAppointmentList
-                            initialAppointments={apptsToRender}
-                            client:load
-                        />
-                    </section>
                 </div>
             </main>
         </div>

@@ -23,6 +23,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 
 interface User {
     id: string;
@@ -55,6 +60,67 @@ export default function UserManager() {
     // Reset Password
     const [resetPasswords, setResetPasswords] = useState<Record<string, string>>({});
 
+    // Areas fetch
+    const [areasList, setAreasList] = useState<{id: number, nombre: string}[]>([]);
+
+    // Columnas Dinámicas
+    const defaultColumns = [
+        { key: 'fullName', label: 'Nombre Completo', visible: true, width: 200 },
+        { key: 'dni', label: 'DNI', visible: true, width: 120 },
+        { key: 'area', label: 'Área', visible: true, width: 150 },
+        { key: 'email', label: 'Email', visible: true, width: 220 },
+        { key: 'role', label: 'Rol Actual', visible: true, width: 160 },
+        { key: 'resetPass', label: 'Cambiar Contraseña', visible: true, width: 200 },
+        { key: 'actions', label: 'Acciones', visible: true, width: 100 },
+    ];
+    const [columns, setColumns] = useState(defaultColumns);
+    const [resizingCol, setResizingCol] = useState<string | null>(null);
+    const [startX, setStartX] = useState(0);
+    const [startWidth, setStartWidth] = useState(0);
+
+    const handleResizeStart = (e: React.MouseEvent, colKey: string, currentWidth: number) => {
+        e.preventDefault();
+        setResizingCol(colKey);
+        setStartX(e.clientX);
+        setStartWidth(currentWidth);
+    };
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!resizingCol) return;
+            const diff = e.clientX - startX;
+            setColumns(cols => cols.map(c => 
+                c.key === resizingCol ? { ...c, width: Math.max(50, startWidth + diff) } : c
+            ));
+        };
+        
+        const handleMouseUp = () => {
+            setResizingCol(null);
+        };
+
+        if (resizingCol) {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [resizingCol, startX, startWidth]);
+
+    const fetchAreas = async () => {
+        try {
+            const res = await fetch('/api/admin/areas');
+            if (res.ok) {
+                const data = await res.json();
+                setAreasList(data.areas || []);
+            }
+        } catch (err) {
+            console.error('Error fetching areas:', err);
+        }
+    };
+
     const fetchUsers = async () => {
         setLoading(true);
         try {
@@ -73,6 +139,7 @@ export default function UserManager() {
 
     useEffect(() => {
         fetchUsers();
+        fetchAreas();
     }, []);
 
     const handleCreateUser = async (e: React.FormEvent) => {
@@ -173,6 +240,15 @@ export default function UserManager() {
         }
     };
 
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredUsers = users.filter(u => {
+        const term = searchTerm.toLowerCase();
+        const fullName = (`${u.first_name || ''} ${u.last_name || ''}`).trim().toLowerCase() || (u.full_name || '').toLowerCase();
+        const dni = u.dni || '';
+        return fullName.includes(term) || dni.includes(term);
+    });
+
     if (loading) return <p>Cargando usuarios...</p>;
 
     return (
@@ -189,19 +265,50 @@ export default function UserManager() {
                     <form onSubmit={handleCreateUser} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>Nombres</Label>
-                            <Input value={newUserFirstName} onChange={e => setNewUserFirstName(e.target.value)} required />
+                            <Input 
+                                value={newUserFirstName} 
+                                onChange={e => setNewUserFirstName(e.target.value.toUpperCase())} 
+                                required 
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Apellidos</Label>
-                            <Input value={newUserLastName} onChange={e => setNewUserLastName(e.target.value)} required />
+                            <Input 
+                                value={newUserLastName} 
+                                onChange={e => setNewUserLastName(e.target.value.toUpperCase())} 
+                                required 
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>DNI / Documento</Label>
-                            <Input value={newUserDni} onChange={e => setNewUserDni(e.target.value)} required />
+                            <Input 
+                                value={newUserDni} 
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    if (/^\d*$/.test(val) && val.length <= 8) {
+                                        setNewUserDni(val);
+                                    }
+                                }} 
+                                required 
+                                minLength={8}
+                                maxLength={8}
+                                placeholder="8 dígitos"
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Área / Departamento</Label>
-                            <Input value={newUserArea} onChange={e => setNewUserArea(e.target.value)} required />
+                            <Select value={newUserArea} onValueChange={setNewUserArea}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Seleccione un área" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-60">
+                                    {areasList.map(area => (
+                                        <SelectItem key={area.id} value={area.nombre}>
+                                            {area.nombre}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <Label>Email</Label>
@@ -235,62 +342,129 @@ export default function UserManager() {
 
             {/* Tabla de Usuarios */}
             <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-start sm:items-center justify-between pb-2 gap-4 flex-wrap">
                     <CardTitle>Lista de Usuarios</CardTitle>
+                    <div className="flex items-center gap-2 flex-1 max-w-sm justify-end">
+                        <Input 
+                            placeholder="Buscar por DNI o Nombre..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="h-9"
+                        />
+                        <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm">
+                                ⚙️ Columnas
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-56">
+                            <div className="space-y-3">
+                                <h4 className="font-medium text-sm">Mostrar u Ocultar Columnas</h4>
+                                <div className="space-y-2">
+                                    {columns.map(col => (
+                                        <div key={col.key} className="flex items-center space-x-2">
+                                            <input 
+                                                type="checkbox" 
+                                                id={`col-${col.key}`} 
+                                                checked={col.visible}
+                                                onChange={() => {
+                                                    setColumns(cols => cols.map(c => 
+                                                        c.key === col.key ? { ...c, visible: !c.visible } : c
+                                                    ))
+                                                }}
+                                                className="w-4 h-4 rounded border-gray-300"
+                                            />
+                                            <label htmlFor={`col-${col.key}`} className="text-sm cursor-pointer select-none">{col.label}</label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                    </div>
                 </CardHeader>
                 <CardContent className="overflow-x-auto">
-                    <Table>
+                    <Table style={{ tableLayout: 'fixed', minWidth: 'max-content' }}>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nombre Completo</TableHead>
-                                <TableHead>DNI</TableHead>
-                                <TableHead>Área</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Rol Actual</TableHead>
-                                <TableHead>Cambiar Contraseña</TableHead>
-                                <TableHead className="text-right">Acciones</TableHead>
+                                {columns.filter(c => c.visible).map(col => (
+                                    <TableHead 
+                                        key={col.key} 
+                                        style={{ width: col.width, position: 'relative' }}
+                                        className={col.key === 'actions' ? 'text-right' : ''}
+                                    >
+                                        {col.label}
+                                        {col.key !== 'actions' && (
+                                            <div 
+                                                onMouseDown={(e) => handleResizeStart(e, col.key, col.width)}
+                                                className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-slate-300 active:bg-slate-400 z-10 transition-colors"
+                                                style={{ transform: 'translateX(50%)' }}
+                                            />
+                                        )}
+                                    </TableHead>
+                                ))}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {users.map(u => (
+                            {filteredUsers.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={columns.filter(c => c.visible).length} className="h-24 text-center">
+                                        No se encontraron usuarios.
+                                    </TableCell>
+                                </TableRow>
+                            ) : filteredUsers.map(u => (
                                 <TableRow key={u.id}>
-                                    <TableCell className="font-medium whitespace-nowrap">
-                                        {u.first_name || u.last_name ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : (u.full_name || 'Sin nombre')}
-                                    </TableCell>
-                                    <TableCell>{u.dni || '-'}</TableCell>
-                                    <TableCell>{u.area || '-'}</TableCell>
-                                    <TableCell>{u.email}</TableCell>
-                                    <TableCell>
-                                        <Select value={u.role} onValueChange={(val) => handleRoleChange(u.id, val)}>
-                                            <SelectTrigger className="w-[140px] h-8 text-xs">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="cliente">Cliente</SelectItem>
-                                                <SelectItem value="administrador">Administrador</SelectItem>
-                                                <SelectItem value="superadmin">Superadmin</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <Input 
-                                                type="password" 
-                                                placeholder="Nueva pass..." 
-                                                className="w-32 h-8 text-xs" 
-                                                value={resetPasswords[u.id] || ''}
-                                                onChange={(e) => setResetPasswords({...resetPasswords, [u.id]: e.target.value})}
-                                            />
-                                            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handleResetPassword(u.id)}>
-                                                Guardar
+                                    {columns.find(c => c.key === 'fullName')?.visible && (
+                                        <TableCell className="font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+                                            {u.first_name || u.last_name ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : (u.full_name || 'Sin nombre')}
+                                        </TableCell>
+                                    )}
+                                    {columns.find(c => c.key === 'dni')?.visible && (
+                                        <TableCell className="overflow-hidden text-ellipsis">{u.dni || '-'}</TableCell>
+                                    )}
+                                    {columns.find(c => c.key === 'area')?.visible && (
+                                        <TableCell className="overflow-hidden text-ellipsis" title={u.area || ''}>{u.area || '-'}</TableCell>
+                                    )}
+                                    {columns.find(c => c.key === 'email')?.visible && (
+                                        <TableCell className="overflow-hidden text-ellipsis" title={u.email}>{u.email}</TableCell>
+                                    )}
+                                    {columns.find(c => c.key === 'role')?.visible && (
+                                        <TableCell>
+                                            <Select value={u.role} onValueChange={(val) => handleRoleChange(u.id, val)}>
+                                                <SelectTrigger className="w-full h-8 text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="cliente">Cliente</SelectItem>
+                                                    <SelectItem value="administrador">Administrador</SelectItem>
+                                                    <SelectItem value="superadmin">Superadmin</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                    )}
+                                    {columns.find(c => c.key === 'resetPass')?.visible && (
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Input 
+                                                    type="password" 
+                                                    placeholder="Nueva pass..." 
+                                                    className="w-full h-8 text-xs" 
+                                                    value={resetPasswords[u.id] || ''}
+                                                    onChange={(e) => setResetPasswords({...resetPasswords, [u.id]: e.target.value})}
+                                                />
+                                                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handleResetPassword(u.id)}>
+                                                    Guardar
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    )}
+                                    {columns.find(c => c.key === 'actions')?.visible && (
+                                        <TableCell className="text-right">
+                                            <Button size="sm" variant="destructive" onClick={() => handleDeleteUser(u.id)}>
+                                                Borrar
                                             </Button>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <Button size="sm" variant="destructive" onClick={() => handleDeleteUser(u.id)}>
-                                            Borrar
-                                        </Button>
-                                    </TableCell>
+                                        </TableCell>
+                                    )}
                                 </TableRow>
                             ))}
                         </TableBody>

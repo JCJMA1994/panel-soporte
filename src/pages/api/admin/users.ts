@@ -38,6 +38,25 @@ export const POST: APIRoute = async ({ request }) => {
             return new Response(JSON.stringify({ error: "Faltan datos requeridos (email, password o role)." }), { status: 400 });
         }
 
+        if (!dni || !/^\d{8}$/.test(dni)) {
+            return new Response(JSON.stringify({ error: "El DNI debe contener exactamente 8 números." }), { status: 400 });
+        }
+
+        // Verificar si el DNI ya existe
+        const { data: existingUser, error: dniError } = await supabaseAdmin
+            .from("profiles")
+            .select("id")
+            .eq("dni", dni)
+            .limit(1);
+
+        if (dniError) {
+            return new Response(JSON.stringify({ error: "Error al verificar el DNI." }), { status: 500 });
+        }
+
+        if (existingUser && existingUser.length > 0) {
+            return new Response(JSON.stringify({ error: "El DNI ingresado ya está registrado en el sistema." }), { status: 400 });
+        }
+
         // 1. Crear el usuario en Auth usando supabaseAdmin superior
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email: email,
